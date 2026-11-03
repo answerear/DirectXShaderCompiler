@@ -11,7 +11,7 @@ exit /b %RET%
 setlocal EnableDelayedExpansion
 
 echo ============================================================================
-echo   DirectXShaderCompiler [dxcompiler] - VS2019 x64 Release Build Script
+echo   DirectXShaderCompiler [dxcompiler] - VS2019 x64 Release Build ^& Install
 echo ============================================================================
 echo.
 
@@ -32,7 +32,7 @@ if not exist "%REPO_ROOT%\CMakeLists.txt" (
 REM ============================================================================
 REM 1. Locate Visual Studio 2019 and vcvars64.bat
 REM ============================================================================
-echo [1/6] Checking Visual Studio 2019 environment...
+echo [1/7] Checking Visual Studio 2019 environment...
 
 set "VS2019_DIR="
 set "PF86=%ProgramFiles(x86)%"
@@ -100,7 +100,7 @@ REM ============================================================================
 REM 2. Check Git, CMake, Python3
 REM ============================================================================
 echo.
-echo [2/6] Checking required build tools [Git / CMake / Python3]...
+echo [2/7] Checking required build tools [Git / CMake / Python3]...
 
 where git.exe >nul 2>nul
 if not errorlevel 1 goto :check_cmake
@@ -149,7 +149,7 @@ REM ============================================================================
 REM 3. Initialize Git Submodules
 REM ============================================================================
 echo.
-echo [3/6] Initializing and updating Git submodules...
+echo [3/7] Initializing and updating Git submodules...
 
 cd /d "%REPO_ROOT%"
 git submodule update --init --recursive
@@ -172,7 +172,7 @@ REM 4. Configure CMake (Visual Studio 16 2019 x64)
 REM ============================================================================
 set "BUILD_DIR=%REPO_ROOT%\build_vs2019_x64"
 echo.
-echo [4/6] Running CMake configuration for Visual Studio 16 2019 x64...
+echo [4/7] Running CMake configuration for Visual Studio 16 2019 x64...
 echo       Build Directory: "%BUILD_DIR%"
 
 cmake -S "%REPO_ROOT%" -B "%BUILD_DIR%" ^
@@ -196,7 +196,7 @@ REM ============================================================================
 REM 5. Build dxcompiler (Release | x64)
 REM ============================================================================
 echo.
-echo [5/6] Building target dxcompiler [Release x64]...
+echo [5/7] Building target dxcompiler [Release x64]...
 
 cmake --build "%BUILD_DIR%" --config Release --target dxcompiler -- /m
 if errorlevel 1 (
@@ -208,7 +208,7 @@ REM ============================================================================
 REM 6. Verify Output Artifacts
 REM ============================================================================
 echo.
-echo [6/6] Verifying output binaries...
+echo [6/7] Verifying output binaries...
 
 set "OUT_DLL=%BUILD_DIR%\Release\bin\dxcompiler.dll"
 set "OUT_LIB=%BUILD_DIR%\Release\lib\dxcompiler.lib"
@@ -218,10 +218,72 @@ if not exist "%OUT_DLL%" (
     exit /b 1
 )
 
+REM ============================================================================
+REM 7. Install to Tiny3D dependencies directory (via relative path)
+REM ============================================================================
+echo.
+echo [7/7] Installing DXC headers and binaries...
+
+cd /d "%REPO_ROOT%"
+set "INSTALL_ROOT=..\..\Tiny3D\dependencies\dxc"
+set "INSTALL_INC_DIR=%INSTALL_ROOT%\include\dxc"
+set "INSTALL_BIN_DIR=%INSTALL_ROOT%\prebuilt\Windows\x64"
+
+if not exist "%INSTALL_ROOT%" (
+    echo [ERROR] Target install root directory does not exist: "%INSTALL_ROOT%"
+    exit /b 1
+)
+
+if not exist "%INSTALL_INC_DIR%" (
+    mkdir "%INSTALL_INC_DIR%"
+    if errorlevel 1 (
+        echo [ERROR] Failed to create directory: "%INSTALL_INC_DIR%"
+        exit /b 1
+    )
+)
+
+if not exist "%INSTALL_BIN_DIR%" (
+    mkdir "%INSTALL_BIN_DIR%"
+    if errorlevel 1 (
+        echo [ERROR] Failed to create directory: "%INSTALL_BIN_DIR%"
+        exit /b 1
+    )
+)
+
+copy /Y "include\dxc\dxcapi.h" "%INSTALL_INC_DIR%\dxcapi.h" >nul
+if errorlevel 1 (
+    echo [ERROR] Failed to install dxcapi.h to "%INSTALL_INC_DIR%"
+    exit /b 1
+)
+
+copy /Y "include\dxc\dxcerrors.h" "%INSTALL_INC_DIR%\dxcerrors.h" >nul
+if errorlevel 1 (
+    echo [ERROR] Failed to install dxcerrors.h to "%INSTALL_INC_DIR%"
+    exit /b 1
+)
+
+copy /Y "include\dxc\WinAdapter.h" "%INSTALL_INC_DIR%\WinAdapter.h" >nul
+if errorlevel 1 (
+    echo [ERROR] Failed to install WinAdapter.h to "%INSTALL_INC_DIR%"
+    exit /b 1
+)
+
+copy /Y "%OUT_DLL%" "%INSTALL_BIN_DIR%\dxcompiler.dll" >nul
+if errorlevel 1 (
+    echo [ERROR] Failed to install dxcompiler.dll to "%INSTALL_BIN_DIR%"
+    exit /b 1
+)
+
+echo       Installed: %INSTALL_INC_DIR%\dxcapi.h
+echo       Installed: %INSTALL_INC_DIR%\dxcerrors.h
+echo       Installed: %INSTALL_INC_DIR%\WinAdapter.h
+echo       Installed: %INSTALL_BIN_DIR%\dxcompiler.dll
+
 echo.
 echo ============================================================================
-echo   [SUCCESS] dxcompiler built successfully!
-echo   DLL : %OUT_DLL%
-if exist "%OUT_LIB%" echo   LIB : %OUT_LIB%
+echo   [SUCCESS] dxcompiler built and installed successfully!
+echo   Build DLL   : %OUT_DLL%
+if exist "%OUT_LIB%" echo   Build LIB   : %OUT_LIB%
+echo   Install Dir : %INSTALL_ROOT%
 echo ============================================================================
 exit /b 0
